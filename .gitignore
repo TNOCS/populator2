@@ -1,7 +1,3 @@
-bag_enrichment/processing/
-bag_enrichment/persistence/
-
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

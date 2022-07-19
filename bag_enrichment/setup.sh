@@ -44,7 +44,7 @@ sleep 10;
 while [ "$(docker exec -ti populator-postgis psql -U postgres -c "\l" | grep -c "bagv2            | postgres | UTF8     | en_US.utf8 | en_US.utf8 |")" != 1 ]; 
 do 
     echo "Waiting for db to boot...";
-    sleep 1; 
+    sleep 2; 
 done
 
 # Create db schema needed for nlextract (source: https://github.com/nlextract/NLExtract/tree/master/bagv2/etl)
