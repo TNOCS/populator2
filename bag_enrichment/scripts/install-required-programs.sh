@@ -10,8 +10,8 @@ exit_with_error()
 apt update && apt install p7zip-full wget -y
 
 if ! [ -x "$(command -v 7z)" ]; then
-  exit_with_error "I require 7z but it's not installed.  Aborting."
+  exit_with_error "Installing 7z failed.  Aborting."
 fi
 if ! [ -x "$(command -v wget)" ]; then
-  exit_with_error "I require wget but it's not installed.  Aborting."
+  exit_with_error "Installing wget failed.  Aborting."
 fi

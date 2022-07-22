@@ -20,14 +20,22 @@ fi
 # creating processing volume
 docker volume create populator-processing
 
+# Exporting variables for use in scripts
+touch ./scripts/set-environment.sh
+sed -i '/BAGFILE=/d' ./scripts/set-environment.sh
+echo "BAGFILE=$BAGFILE" >> ./scripts/set-environment.sh
+sed -i '/BAGDLLINK=/d' ./scripts/set-environment.sh
+echo "BAGDLLINK=$BAGDLLINK" >> ./scripts/set-environment.sh
+sed -i '/WBKAARTFILE=/d' ./scripts/set-environment.sh
+echo "WBKAARTFILE=$WBKAARTFILE" >> ./scripts/set-environment.sh
+sed -i '/WBKAARTDLLINK=/d' ./scripts/set-environment.sh
+echo "WBKAARTDLLINK=$WBKAARTDLLINK" >> ./scripts/set-environment.sh
+
 # creating and preparing debian container
-docker run --name populator-debian -d -it -v populator-processing:/data debian
+docker run --name populator-debian -d -it -v populator-processing:/data debian:stable
 docker cp $(pwd)/scripts populator-debian:/data
-docker exec -ti populator-debian bash -c 'export BAGFILE="lvbag-extract-nl.zip"'
-docker exec -ti populator-debian bash -c 'export BAGDLLINK="https://service.pdok.nl/kadaster/adressen/atom/v1_0/downloads/lvbag-extract-nl.zip"'
-docker exec -ti populator-debian bash -c 'export WBKAARTFILE="wijkbuurtkaart_2022_v0.zip"'
-docker exec -ti populator-debian bash -c 'export WBKAARTDLLINK="https://www.cbs.nl/-/media/cbs/dossiers/nederland-regionaal/wijk-en-buurtstatistieken/wijkbuurtkaart_2022_v0.zip"'
-docker exec -ti populator-debian bash /data/scripts/check.sh
+docker exec -ti populator-debian bash /data/scripts/set-environment.sh
+docker exec -ti populator-debian bash /data/scripts/install-required-programs.sh
 
 # debian container downloads source files to volume and extracts
 docker exec -ti populator-debian bash /data/scripts/download.sh
