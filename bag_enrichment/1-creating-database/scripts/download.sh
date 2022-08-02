@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-
 source /data/scripts/set-environment.sh
 
-# Downloading bag file to processing folder
+# Download bag file to processing folder if it does not exist
 if [ -f /data/processing/$BAGFILE ]; then
    echo "File /data/processing/$BAGFILE exists. Skipping download."
 else
@@ -10,7 +9,7 @@ else
    wget $BAGDLLINK -P /data/processing;
 fi
 
-# Downloading wijkbuurtkaart to processing folder
+# Download wijkbuurtkaart to processing folder if it does not exist
 if [ -f /data/processing/$WBKAARTFILE ]; then
    echo "File /data/processing/$WBKAARTFILE exists. Skipping download."
 else

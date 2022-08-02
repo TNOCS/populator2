@@ -17,36 +17,34 @@ if ! [ -x "$(command -v docker)" ]; then
   exit_with_error "I require docker but it's not installed.  Aborting."
 fi
 
+# Create populator network
+docker network create populator
+
 # creating processing volume
 docker volume create populator-processing
 
 # Exporting variables for use in scripts
-touch ./scripts/set-environment.sh
-sed -i '/BAGFILE=/d' ./scripts/set-environment.sh
+rm ./scripts/set-environment.sh 2> /dev/null
 echo "BAGFILE=$BAGFILE" >> ./scripts/set-environment.sh
-sed -i '/BAGDLLINK=/d' ./scripts/set-environment.sh
 echo "BAGDLLINK=$BAGDLLINK" >> ./scripts/set-environment.sh
-sed -i '/WBKAARTFILE=/d' ./scripts/set-environment.sh
 echo "WBKAARTFILE=$WBKAARTFILE" >> ./scripts/set-environment.sh
-sed -i '/WBKAARTDLLINK=/d' ./scripts/set-environment.sh
 echo "WBKAARTDLLINK=$WBKAARTDLLINK" >> ./scripts/set-environment.sh
 
 # creating and preparing debian container
-docker run --name populator-debian -d -it -v populator-processing:/data debian:stable
+docker run --name populator-debian --network populator -d -it -v populator-processing:/data debian:stable
 docker cp $(pwd)/scripts populator-debian:/data
-docker exec -ti populator-debian bash /data/scripts/set-environment.sh
 docker exec -ti populator-debian bash /data/scripts/install-required-programs.sh
 
-# debian container downloads source files to volume and extracts
+# debian container downloads source files to volume and extract
 docker exec -ti populator-debian bash /data/scripts/download.sh
 docker exec -ti populator-debian bash /data/scripts/extract.sh
 
-# creating persistence volume
+# creating persistence volume for postgis
 docker volume create populator-pgdata
 
 # Create postgis container with bagv2 db and wait until it has booted
 echo "creating postgis db"
-docker run --name populator-postgis -p 5432:5432 -v populator-pgdata:/var/lib/postgresql/data -v populator-processing:/data -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bagv2 -d postgis/postgis
+docker run --name populator-postgis --network populator -p 5432:5432 -v populator-pgdata:/var/lib/postgresql/data -v populator-processing:/data -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bagv2 -d postgis/postgis
 echo "Waiting for db to boot..."
 sleep 10;
 while [ "$(docker exec -ti populator-postgis psql -U postgres -c "\l" | grep -c "bagv2            | postgres | UTF8     | en_US.utf8 | en_US.utf8 |")" != 1 ]; 
@@ -56,7 +54,6 @@ do
 done
 
 # Create db schema needed for nlextract (source: https://github.com/nlextract/NLExtract/tree/master/bagv2/etl)
-sleep 1;
 docker exec -it populator-postgis psql -U postgres  -c "\connect bagv2;" -c "CREATE SCHEMA test;";
 
 # Check if test schema is created
@@ -67,10 +64,9 @@ else
      exit_with_error "test schema is not found";
 fi
 
-# Create nlextract container that processes bag into the postgis db
+# Create nlextract container that processes bag into the postgis db. Processing is single threaded... ETA 3h on ryzen 3600
 sleep 1;
-##  TODO check if postgis accepts connections on pg_host      single threaded... ETA 3h on ryzen 3600
-docker run --name nlextract -v populator-processing:/data nlextract/nlextract:latest bagv2/etl/etl.sh -a bag_input_file=/data/processing/$BAGFILE -a pg_host=172.17.0.1;
+docker run --rm --name populator-nlextract --network populator -v populator-processing:/data nlextract/nlextract:latest bagv2/etl/etl.sh -a bag_input_file=/data/processing/$BAGFILE -a pg_host=populator-postgis;
 docker exec -it populator-postgis psql -U postgres -c "\connect bagv2;" -c "DROP SCHEMA IF EXISTS bag CASCADE;";
 docker exec -it populator-postgis psql -U postgres -c "\connect bagv2;" -c "ALTER SCHEMA test RENAME TO bag;";
 
@@ -81,6 +77,9 @@ docker exec -ti populator-postgis bash -c "shp2pgsql -I -d -s 0:28992 /data/proc
 docker exec -ti populator-postgis bash -c "shp2pgsql -I -d -s 0:28992 /data/processing/SHP/CBS_buurten2022.shp cbs.buurten | psql -U postgres -d bagv2";
 docker exec -ti populator-postgis bash -c "shp2pgsql -I -d -s 0:28992 /data/processing/SHP/CBS_wijken2022.shp cbs.wijken | psql -U postgres -d bagv2";
 
+# Stopping and removing debian container
+docker stop populator-debian;
+docker rm populator-debian;
 
 echo "The BAG setup script has concluded.";
 
