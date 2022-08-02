@@ -81,6 +81,9 @@ docker exec -ti populator-postgis bash -c "shp2pgsql -I -d -s 0:28992 /data/proc
 docker stop populator-debian;
 docker rm populator-debian;
 
+# Deleting populator-processing container
+docker volume rm populator-processing;
+
 echo "The BAG setup script has concluded.";
 
 
