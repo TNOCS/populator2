@@ -31,7 +31,11 @@ echo "WBKAARTFILE=$WBKAARTFILE" >> ./scripts/set-environment.sh
 echo "WBKAARTDLLINK=$WBKAARTDLLINK" >> ./scripts/set-environment.sh
 
 # creating and preparing debian container
-docker run --name populator-debian --network populator -d -it -v populator-processing:/data debian:stable
+docker run -d -it \
+    --name populator-debian \
+    --network populator \
+    -v populator-processing:/data \
+    debian:stable
 docker cp $(pwd)/scripts populator-debian:/data
 docker exec -ti populator-debian bash /data/scripts/install-required-programs.sh
 
@@ -44,7 +48,15 @@ docker volume create populator-pgdata
 
 # Create postgis container with bagv2 db and wait until it has booted
 echo "creating postgis db"
-docker run --name populator-postgis --network populator -p 5432:5432 -v populator-pgdata:/var/lib/postgresql/data -v populator-processing:/data -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bagv2 -d postgis/postgis
+docker run -d \
+    --name populator-postgis \
+    --network populator \
+    -p 5432:5432 \
+    -v populator-pgdata:/var/lib/postgresql/data \
+    -v populator-processing:/data \
+    -e POSTGRES_PASSWORD=postgres \
+    -e POSTGRES_DB=bagv2 \
+    postgis/postgis
 echo "Waiting for db to boot..."
 sleep 10;
 while [ "$(docker exec -ti populator-postgis psql -U postgres -c "\l" | grep -c "bagv2            | postgres | UTF8     | en_US.utf8 | en_US.utf8 |")" != 1 ]; 
@@ -61,12 +73,17 @@ if [ "$(docker exec -ti populator-postgis psql -U postgres -c "\connect bagv2;" 
 then
     echo "test schema is found.  Continuing.";
 else
-     exit_with_error "test schema is not found";
+     exit_with_error "Something went wrong creating the 'test' schema. Aborting.";
 fi
 
 # Create nlextract container that processes bag into the postgis db. Processing is single threaded... ETA 3h on ryzen 3600
 sleep 1;
-docker run --rm --name populator-nlextract --network populator -v populator-processing:/data nlextract/nlextract:latest bagv2/etl/etl.sh -a bag_input_file=/data/processing/$BAGFILE -a pg_host=populator-postgis;
+docker run --rm \
+    --name populator-nlextract \
+    --network populator \
+    -v populator-processing:/data \
+    nlextract/nlextract:latest \
+    bagv2/etl/etl.sh -a bag_input_file=/data/processing/$BAGFILE -a pg_host=populator-postgis;
 docker exec -it populator-postgis psql -U postgres -c "\connect bagv2;" -c "DROP SCHEMA IF EXISTS bag CASCADE;";
 docker exec -it populator-postgis psql -U postgres -c "\connect bagv2;" -c "ALTER SCHEMA test RENAME TO bag;";
 
