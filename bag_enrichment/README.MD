@@ -31,4 +31,4 @@ I am unable to recreate the 'buurtendataset' as of yet.
 
 # 3 Generating population
 
-This is the final part of generating the data for the populator service. It was an 1500 line python script. I have edited the script to be a bit smaller, but there are still some undefined variables that need to be fixed. Also, this script needs the 'buurtendataset', which I have not been able to recreate.
+This directory contains the script that generates the data for the populator service. It was an 1500 line python script. I have edited the script to be a bit smaller, but there are still some undefined variables that need to be fixed. Also, this script needs the 'buurtendataset', which I have not been able to recreate.
